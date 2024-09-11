@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Mic, Loader, AlertCircle } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Mic, Loader, AlertCircle, Volume2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { startSpeechRecognition } from '@/lib/speechRecognition';
@@ -12,15 +12,30 @@ type Message = {
 };
 
 export default function GMForge() {
-  const [status, setStatus] = useState<'idle' | 'recording' | 'thinking' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'recording' | 'thinking' | 'speaking' | 'error'>('idle');
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesEndRef = useRef<null | HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(scrollToBottom, [messages]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.onended = () => setStatus('idle');
+    }
+  }, [audioRef]);
 
   const StatusIcon = () => {
     switch (status) {
-      case 'recording': return <Mic className="animate-pulse text-red-500" />;
-      case 'thinking': return <Loader className="animate-spin text-blue-500" />;
-      case 'error': return <AlertCircle className="text-yellow-500" />;
-      default: return <Mic className="text-gray-500" />;
+      case 'recording': return <Mic className="animate-pulse text-red-400" />;
+      case 'thinking': return <Loader className="animate-spin text-purple-400" />;
+      case 'speaking': return <Volume2 className="animate-pulse text-green-400" />;
+      case 'error': return <AlertCircle className="text-yellow-400" />;
+      default: return <Mic className="text-gray-400" />;
     }
   };
 
@@ -45,63 +60,70 @@ export default function GMForge() {
       });
       const data = await response.json();
       setMessages(prev => [...prev, { role: 'user', content: input }, { role: 'assistant', content: data.text }]);
-      new Audio(data.audio).play();
+      
+      setStatus('speaking');
+      if (audioRef.current) {
+        audioRef.current.src = data.audio;
+        audioRef.current.play();
+      }
     } catch (error) {
       console.error('Error:', error);
       setStatus('error');
-    } finally {
-      setStatus('idle');
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl text-center mb-8 text-white">GM Forge</h1>
-      
-      <div className="max-w-2xl mx-auto bg-gray-800 rounded-lg shadow-lg p-4 mb-4 h-96 overflow-y-auto">
-        {messages.map((msg, index) => (
-          <div key={index} className={`mb-4 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-            <div className={`inline-block p-2 rounded-lg ${msg.role === 'user' ? 'bg-blue-600' : 'bg-green-600'}`}>
-              {msg.role === 'user' ? (
-                <span>{msg.content}</span>
-              ) : (
-                <ReactMarkdown 
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    p: ({node, ...props}) => <p className="mb-2" {...props} />,
-                    h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-2" {...props} />,
-                    h2: ({node, ...props}) => <h2 className="text-lg font-semibold mb-2" {...props} />,
-                    ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2" {...props} />,
-                    ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2" {...props} />,
-                    li: ({node, ...props}) => <li className="mb-1" {...props} />,
-                    a: ({node, ...props}) => <a className="text-blue-300 hover:underline" {...props} />,
-                    blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-gray-500 pl-2 italic" {...props} />,
-                    code: ({node, inline, ...props}) => 
-                      inline 
-                        ? <code className="bg-gray-700 rounded px-1" {...props} />
-                        : <code className="block bg-gray-700 rounded p-2 my-2" {...props} />,
-                  }}
-                >
-                  {msg.content}
-                </ReactMarkdown>
-              )}
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-purple-900 to-gray-900 text-gray-100">
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-5xl text-center mb-8 text-purple-300 font-bold font-cinzel">GM Forge</h1>
+        
+        <div className="max-w-3xl mx-auto bg-gray-800 bg-opacity-50 rounded-lg shadow-lg p-6 mb-4 h-[60vh] overflow-y-auto border border-purple-500">
+          {messages.map((msg, index) => (
+            <div key={index} className={`mb-4 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+              <div className={`inline-block p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-900' : 'bg-purple-900'} shadow-md`}>
+                {msg.role === 'user' ? (
+                  <span className="text-blue-200">{msg.content}</span>
+                ) : (
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({node, ...props}) => <p className="mb-2 text-purple-200" {...props} />,
+                      h1: ({node, ...props}) => <h1 className="text-2xl font-bold mb-2 text-purple-300" {...props} />,
+                      h2: ({node, ...props}) => <h2 className="text-xl font-semibold mb-2 text-purple-300" {...props} />,
+                      ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 text-purple-200" {...props} />,
+                      ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 text-purple-200" {...props} />,
+                      li: ({node, ...props}) => <li className="mb-1" {...props} />,
+                      a: ({node, ...props}) => <a className="text-blue-300 hover:underline" {...props} />,
+                      blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-purple-500 pl-2 italic text-gray-300" {...props} />,
+                      code: ({node, inline, ...props}) => 
+                        inline 
+                          ? <code className="bg-gray-700 rounded px-1 text-purple-200" {...props} />
+                          : <code className="block bg-gray-700 rounded p-2 my-2 text-purple-200" {...props} />,
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+        
+        <div className="flex justify-center items-center mt-6">
+          <button
+            onClick={handleSpeak}
+            className="bg-purple-700 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-full flex items-center shadow-lg transform transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={status !== 'idle'}
+          >
+            <StatusIcon />
+            <span className="ml-2 text-lg">
+              {status === 'idle' ? 'Speak Your Action' : status.charAt(0).toUpperCase() + status.slice(1)}
+            </span>
+          </button>
+        </div>
       </div>
-      
-      <div className="flex justify-center items-center mt-4">
-        <button
-          onClick={handleSpeak}
-          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full flex items-center"
-          disabled={status === 'recording' || status === 'thinking'}
-        >
-          <StatusIcon />
-          <span className="ml-2">
-            {status === 'idle' ? 'Click to Speak' : status.charAt(0).toUpperCase() + status.slice(1)}
-          </span>
-        </button>
-      </div>
+      <audio ref={audioRef} className="hidden" />
     </div>
   );
 }
