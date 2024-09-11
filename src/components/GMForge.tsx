@@ -5,6 +5,8 @@ import { Mic, Loader, AlertCircle, Volume2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { startSpeechRecognition } from '@/lib/speechRecognition';
+import { themes, Theme } from '@/lib/themes';
+import ThemeSwitcher from '@/components/ThemeSwitcher';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -14,8 +16,11 @@ type Message = {
 export default function GMForge() {
   const [status, setStatus] = useState<'idle' | 'recording' | 'thinking' | 'speaking' | 'error'>('idle');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [currentTheme, setCurrentTheme] = useState<string>('shadowdark');
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const theme: Theme = themes[currentTheme];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -31,11 +36,11 @@ export default function GMForge() {
 
   const StatusIcon = () => {
     switch (status) {
-      case 'recording': return <Mic className="animate-pulse text-red-400" />;
-      case 'thinking': return <Loader className="animate-spin text-purple-400" />;
-      case 'speaking': return <Volume2 className="animate-pulse text-green-400" />;
-      case 'error': return <AlertCircle className="text-yellow-400" />;
-      default: return <Mic className="text-gray-400" />;
+      case 'recording': return <Mic className={`animate-pulse ${theme.accent}`} />;
+      case 'thinking': return <Loader className={`animate-spin ${theme.primary}`} />;
+      case 'speaking': return <Volume2 className={`animate-pulse ${theme.secondary}`} />;
+      case 'error': return <AlertCircle className={theme.accent} />;
+      default: return <Mic className={theme.text} />;
     }
   };
 
@@ -73,32 +78,34 @@ export default function GMForge() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-purple-900 to-gray-900 text-gray-100">
+    <div className={`min-h-screen ${theme.background} ${theme.text}`}>
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-5xl text-center mb-8 text-purple-300 font-bold font-cinzel">GM Forge</h1>
+        <h1 className={`text-5xl text-center mb-8 ${theme.primary} font-bold font-cinzel`}>GM Forge</h1>
         
-        <div className="max-w-3xl mx-auto bg-gray-800 bg-opacity-50 rounded-lg shadow-lg p-6 mb-4 h-[60vh] overflow-y-auto border border-purple-500">
+        <ThemeSwitcher currentTheme={currentTheme} setTheme={setCurrentTheme} />
+        
+        <div className={`max-w-3xl mx-auto bg-gray-800 bg-opacity-50 rounded-lg shadow-lg p-6 mb-4 h-[60vh] overflow-y-auto border ${theme.primary}`}>
           {messages.map((msg, index) => (
             <div key={index} className={`mb-4 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-              <div className={`inline-block p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-900' : 'bg-purple-900'} shadow-md`}>
+              <div className={`inline-block p-3 rounded-lg ${msg.role === 'user' ? theme.messageUser : theme.messageAssistant} shadow-md`}>
                 {msg.role === 'user' ? (
-                  <span className="text-blue-200">{msg.content}</span>
+                  <span className={theme.secondary}>{msg.content}</span>
                 ) : (
                   <ReactMarkdown 
                     remarkPlugins={[remarkGfm]}
                     components={{
-                      p: ({node, ...props}) => <p className="mb-2 text-purple-200" {...props} />,
-                      h1: ({node, ...props}) => <h1 className="text-2xl font-bold mb-2 text-purple-300" {...props} />,
-                      h2: ({node, ...props}) => <h2 className="text-xl font-semibold mb-2 text-purple-300" {...props} />,
-                      ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 text-purple-200" {...props} />,
-                      ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 text-purple-200" {...props} />,
+                      p: ({node, ...props}) => <p className={`mb-2 ${theme.text}`} {...props} />,
+                      h1: ({node, ...props}) => <h1 className={`text-2xl font-bold mb-2 ${theme.primary}`} {...props} />,
+                      h2: ({node, ...props}) => <h2 className={`text-xl font-semibold mb-2 ${theme.primary}`} {...props} />,
+                      ul: ({node, ...props}) => <ul className={`list-disc list-inside mb-2 ${theme.text}`} {...props} />,
+                      ol: ({node, ...props}) => <ol className={`list-decimal list-inside mb-2 ${theme.text}`} {...props} />,
                       li: ({node, ...props}) => <li className="mb-1" {...props} />,
-                      a: ({node, ...props}) => <a className="text-blue-300 hover:underline" {...props} />,
-                      blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-purple-500 pl-2 italic text-gray-300" {...props} />,
+                      a: ({node, ...props}) => <a className={`${theme.secondary} hover:underline`} {...props} />,
+                      blockquote: ({node, ...props}) => <blockquote className={`border-l-4 ${theme.primary} pl-2 italic ${theme.text}`} {...props} />,
                       code: ({node, inline, ...props}) => 
                         inline 
-                          ? <code className="bg-gray-700 rounded px-1 text-purple-200" {...props} />
-                          : <code className="block bg-gray-700 rounded p-2 my-2 text-purple-200" {...props} />,
+                          ? <code className={`bg-gray-700 rounded px-1 ${theme.text}`} {...props} />
+                          : <code className={`block bg-gray-700 rounded p-2 my-2 ${theme.text}`} {...props} />,
                     }}
                   >
                     {msg.content}
@@ -113,7 +120,7 @@ export default function GMForge() {
         <div className="flex justify-center items-center mt-6">
           <button
             onClick={handleSpeak}
-            className="bg-purple-700 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-full flex items-center shadow-lg transform transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`${theme.messageAssistant} hover:bg-opacity-80 ${theme.text} font-bold py-3 px-6 rounded-full flex items-center shadow-lg transform transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed`}
             disabled={status !== 'idle'}
           >
             <StatusIcon />
