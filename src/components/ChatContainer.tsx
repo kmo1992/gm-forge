@@ -3,6 +3,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ThinkingAnimation } from '@/components/ThinkingAnimation';
+import { FileLink } from '@/components/FileLink';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -12,9 +13,49 @@ type Message = {
 interface ChatContainerProps {
   messages: Message[];
   status: 'idle' | 'recording' | 'thinking' | 'speaking' | 'error';
+  onFileClick: (fileName: string) => void;
 }
 
-export const ChatContainer: React.FC<ChatContainerProps> = ({ messages, status }) => {
+export const ChatContainer: React.FC<ChatContainerProps> = ({ messages, status, onFileClick }) => {
+  const renderContent = (content: string) => {
+    const parts = content.split(/(\[File: .+?\])/g);
+    return parts.map((part, index) => {
+      const match = part.match(/\[File: (.+?)\]/);
+      if (match) {
+        const fileName = match[1];
+        return (
+          <FileLink 
+            key={index}
+            fileName={fileName}
+            onClick={() => onFileClick(fileName)}
+          />
+        );
+      }
+      return (
+        <ReactMarkdown 
+          key={index}
+          remarkPlugins={[remarkGfm]}
+          components={{
+            p: ({node, ...props}) => <p className="mb-2" {...props} />,
+            h1: ({node, ...props}) => <h1 className="text-2xl font-bold mb-2 text-purple-300" {...props} />,
+            h2: ({node, ...props}) => <h2 className="text-xl font-semibold mb-2 text-purple-300" {...props} />,
+            ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2" {...props} />,
+            ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2" {...props} />,
+            li: ({node, ...props}) => <li className="mb-1" {...props} />,
+            a: ({node, ...props}) => <a className="text-blue-300 hover:underline" {...props} />,
+            blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-purple-500 pl-2 italic text-gray-300" {...props} />,
+            code: ({node, inline, ...props}) => 
+              inline 
+                ? <code className="bg-purple-800 rounded px-1" {...props} />
+                : <code className="block bg-purple-800 rounded p-2 my-2" {...props} />,
+          }}
+        >
+          {part}
+        </ReactMarkdown>
+      );
+    });
+  };
+
   return (
     <div>
       {messages.map((msg, index) => (
@@ -27,25 +68,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({ messages, status }
             {msg.role === 'user' ? (
               <p>{msg.content}</p>
             ) : (
-              <ReactMarkdown 
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  p: ({node, ...props}) => <p className="mb-2" {...props} />,
-                  h1: ({node, ...props}) => <h1 className="text-2xl font-bold mb-2 text-purple-300" {...props} />,
-                  h2: ({node, ...props}) => <h2 className="text-xl font-semibold mb-2 text-purple-300" {...props} />,
-                  ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2" {...props} />,
-                  ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2" {...props} />,
-                  li: ({node, ...props}) => <li className="mb-1" {...props} />,
-                  a: ({node, ...props}) => <a className="text-blue-300 hover:underline" {...props} />,
-                  blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-purple-500 pl-2 italic text-gray-300" {...props} />,
-                  code: ({node, inline, ...props}) => 
-                    inline 
-                      ? <code className="bg-purple-800 rounded px-1" {...props} />
-                      : <code className="block bg-purple-800 rounded p-2 my-2" {...props} />,
-                }}
-              >
-                {msg.content}
-              </ReactMarkdown>
+              renderContent(msg.content)
             )}
           </div>
         </div>

@@ -14,38 +14,12 @@ type Message = {
   content: string;
 };
 
-const SAMPLE_CHARACTER_SHEET = `# Character Sheet
-
-## Basic Information
-- **Name:** 
-- **Class:** 
-- **Level:** 
-- **Race:** 
-
-## Attributes
-- **Strength:** 
-- **Dexterity:** 
-- **Constitution:** 
-- **Intelligence:** 
-- **Wisdom:** 
-- **Charisma:** 
-
-## Skills
-(List skills here)
-
-## Equipment
-(List equipment here)
-
-## Notes
-(Add any additional notes here)
-`;
-
 export default function GMForge() {
   const [status, setStatus] = useState<'idle' | 'recording' | 'thinking' | 'speaking' | 'error'>('idle');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [files, setFiles] = useState<string[]>(['Character Sheet']);
+  const [files, setFiles] = useState<string[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const { isListening, toggleListening, hasMicrophone } = useSpeechRecognition(setInputText);
   const { playAudio } = useAudioPlayback(() => setStatus('idle'));
@@ -57,12 +31,18 @@ export default function GMForge() {
     }
   }, [messages]);
 
-  useEffect(() => {
-    // Initialize sample character sheet if it doesn't exist
-    if (!localStorage.getItem('Character Sheet')) {
-      localStorage.setItem('Character Sheet', SAMPLE_CHARACTER_SHEET);
-    }
-  }, []);
+  const handleFileCreation = (fileName: string, content: string) => {
+    // Not checking for duplicates for now
+    // if (!files.includes(fileName)) {
+      setFiles(prev => [...prev, fileName]);
+      localStorage.setItem(fileName, content);
+    // }
+  };
+
+  const handleFileClick = (fileName: string) => {
+    setIsSidebarOpen(true);
+    setSelectedFile(fileName);
+  };
 
   const handleSubmit = async () => {
     if (inputText.trim() === '' || status !== 'idle') return;
@@ -83,7 +63,30 @@ export default function GMForge() {
         body: JSON.stringify({ messages: [...messages, { role: 'user', content: userInput }] }),
       });
       const data = await response.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.text }]);
+
+      // Process the response for file creations
+      const processedContent = data.text.replace(
+        // Regular expression to match the [File: ...] line and the content between triple backticks
+        /\[File: (.+?\.md)\]\n```(?:markdown)?\n([\s\S]+?)\n```/g, 
+        (match, fileName, content) => {
+          
+          // Explanation of regex:
+          // \[File: (.+?\.md)\]      : Matches the [File: filename.md] line. 
+          //                            The filename (ending in .md) is captured using (.+?\.md).
+          // \n                       : Matches the newline after the file declaration.
+          // ```(?:markdown)?\n       : Matches the opening triple backticks, optionally with the word 'markdown', followed by a newline.
+          // ([\s\S]+?)\n```          : Captures everything between the triple backticks (including line breaks).
+          //                            [\s\S] matches any character (whitespace and non-whitespace), and the content is captured non-greedily (.+?).
+
+          // Call the function to handle the file creation
+          handleFileCreation(fileName, content.trim());
+          
+          // Replace the file content with a placeholder in the format [File: filename.md]
+          return `[File: ${fileName}]`;
+        }
+      );
+
+      setMessages(prev => [...prev, { role: 'assistant', content: processedContent }]);
       
       setStatus('speaking');
       playAudio(data.audio);
@@ -128,7 +131,7 @@ export default function GMForge() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${selectedFile}.md`;
+      a.download = `${selectedFile}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -148,7 +151,11 @@ export default function GMForge() {
             className="flex-grow overflow-y-auto px-4"
           >
             <div className="w-full pb-24">
-              <ChatContainer messages={messages} status={status} />
+              <ChatContainer 
+                messages={messages} 
+                status={status} 
+                onFileClick={handleFileClick}
+              />
             </div>
           </div>
           <div className="w-full bg-gradient-to-b from-transparent to-gray-900 px-4">
