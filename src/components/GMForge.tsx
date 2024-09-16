@@ -1,4 +1,3 @@
-// src/app/GMForge.tsx
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -7,7 +6,7 @@ import { InputArea } from '@/components/InputArea';
 import FileViewer from '@/components/FileViewer';
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition';
 import { useAudioPlayback } from '@/lib/useAudioPlayback';
-import { PanelRightOpen, FileText } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -32,16 +31,17 @@ export default function GMForge() {
   }, [messages]);
 
   const handleFileCreation = (fileName: string, content: string) => {
-    // Not checking for duplicates for now
-    // if (!files.includes(fileName)) {
+    localStorage.setItem(fileName, content);
+    if (!files.includes(fileName)) {
       setFiles(prev => [...prev, fileName]);
-      localStorage.setItem(fileName, content);
-    // }
+    }
+    setSelectedFile(fileName);
+    setIsSidebarOpen(true);
   };
 
   const handleFileClick = (fileName: string) => {
-    setIsSidebarOpen(true);
     setSelectedFile(fileName);
+    setIsSidebarOpen(true);
   };
 
   const handleSubmit = async () => {
@@ -66,22 +66,9 @@ export default function GMForge() {
 
       // Process the response for file creations
       const processedContent = data.text.replace(
-        // Regular expression to match the [File: ...] line and the content between triple backticks
         /\[File: (.+?\.md)\]\n```(?:markdown)?\n([\s\S]+?)\n```/g, 
         (match, fileName, content) => {
-          
-          // Explanation of regex:
-          // \[File: (.+?\.md)\]      : Matches the [File: filename.md] line. 
-          //                            The filename (ending in .md) is captured using (.+?\.md).
-          // \n                       : Matches the newline after the file declaration.
-          // ```(?:markdown)?\n       : Matches the opening triple backticks, optionally with the word 'markdown', followed by a newline.
-          // ([\s\S]+?)\n```          : Captures everything between the triple backticks (including line breaks).
-          //                            [\s\S] matches any character (whitespace and non-whitespace), and the content is captured non-greedily (.+?).
-
-          // Call the function to handle the file creation
           handleFileCreation(fileName, content.trim());
-          
-          // Replace the file content with a placeholder in the format [File: filename.md]
           return `[File: ${fileName}]`;
         }
       );
@@ -99,11 +86,7 @@ export default function GMForge() {
   };
 
   const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const handleFileSelect = (fileName: string) => {
-    setSelectedFile(fileName);
+    setIsSidebarOpen(prev => !prev);
   };
 
   const handleFileSave = (fileName: string, content: string) => {
@@ -111,10 +94,7 @@ export default function GMForge() {
     if (!files.includes(fileName)) {
       setFiles([...files, fileName]);
     }
-  };
-
-  const handleCloseFile = () => {
-    setSelectedFile(null);
+    setSelectedFile(fileName);
   };
 
   const handleCopyFile = () => {
@@ -145,6 +125,22 @@ export default function GMForge() {
         <div className={`mx-auto max-w-4xl h-full flex flex-col ${isSidebarOpen ? 'mr-0' : 'px-4'}`}>
           <div className="w-full flex-shrink-0 flex justify-between items-center p-4">
             <h1 className="text-3xl py-4 text-purple-300 font-bold font-cinzel">GM Forge</h1>
+            {/* Sidebar toggle button */}
+            <button
+              onClick={toggleSidebar}
+              className={`p-2 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-purple-700 hover:bg-purple-600`}
+              aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+            >
+              {isSidebarOpen ? (
+                // Option 1: Using PanelLeftClose icon
+                <ArrowRight className="w-6 h-6 text-white" />
+                
+                // Option 2: Using X icon with reduced stroke width
+                // <X className="w-6 h-6 text-white" strokeWidth={1.5} />
+              ) : (
+                <ArrowLeft className="w-6 h-6 text-white" />
+              )}
+            </button>
           </div>
           <div 
             ref={chatContainerRef}
@@ -173,14 +169,6 @@ export default function GMForge() {
           </div>
         </div>
       </div>
-      
-      {/* Sidebar toggle button */}
-      <button
-        onClick={toggleSidebar}
-        className="fixed top-4 right-4 z-50 bg-purple-700 hover:bg-purple-600 text-white p-2 rounded-full shadow-lg"
-      >
-        <PanelRightOpen size={24} />
-      </button>
 
       {/* Sidebar */}
       <div 
@@ -189,31 +177,14 @@ export default function GMForge() {
         } overflow-hidden font-sans`}
       >
         <div className="p-4 h-full flex flex-col">
-          <h2 className="text-xl font-bold mb-4 text-purple-300">Files</h2>
-          <ul className="mb-4">
-            {files.map((file) => (
-              <li 
-                key={file} 
-                className="mb-2 cursor-pointer flex items-center"
-                onClick={() => handleFileSelect(file)}
-              >
-                <FileText size={16} className="mr-2" />
-                <span className={selectedFile === file ? 'text-purple-300' : 'text-gray-300'}>
-                  {file}
-                </span>
-              </li>
-            ))}
-          </ul>
           {selectedFile && (
-            <div className="flex-grow flex flex-col">
-              <FileViewer 
-                fileName={selectedFile} 
-                onSave={handleFileSave}
-                onClose={handleCloseFile}
-                onCopy={handleCopyFile}
-                onDownload={handleDownloadFile}
-              />
-            </div>
+            <FileViewer 
+              files={files}
+              initialFile={selectedFile}
+              onSave={handleFileSave}
+              onCopy={handleCopyFile}
+              onDownload={handleDownloadFile}
+            />
           )}
         </div>
       </div>
