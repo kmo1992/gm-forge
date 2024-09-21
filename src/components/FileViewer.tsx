@@ -14,6 +14,11 @@ interface FileViewerProps {
   onDownload: () => void;
 }
 
+type FileData = {
+  content: string;
+  backgroundImage: string | null;
+};
+
 const FileViewer: React.FC<FileViewerProps> = ({ files, initialFile, onSave, onCopy, onDownload }) => {
   const [selectedFile, setSelectedFile] = useState<string>(initialFile);
   const [content, setContent] = useState('');
@@ -26,9 +31,10 @@ const FileViewer: React.FC<FileViewerProps> = ({ files, initialFile, onSave, onC
   }, [initialFile]);
 
   const loadFileContent = (fileName: string) => {
-    const savedContent = localStorage.getItem(fileName);
-    if (savedContent) {
-      setContent(savedContent);
+    const savedData = localStorage.getItem(fileName);
+    if (savedData) {
+      const parsedData: FileData = JSON.parse(savedData);
+      setContent(parsedData.content);
     } else {
       console.log('No content found for:', fileName);
       setContent('');
@@ -53,7 +59,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ files, initialFile, onSave, onC
   };
 
   return (
-    <div className="bg-gray-900 rounded-lg flex flex-col h-full font-sans">
+    <div className="bg-gray-900 rounded-lg flex flex-col h-full font-sans relative overflow-hidden">
       <div className="flex-shrink-0 flex items-center p-2 border-b border-gray-700">
         <div className="relative flex-grow mr-2">
           <button

@@ -11,6 +11,7 @@ const INSTRUCTIONS_FILE = path.join(process.cwd(), 'instructions.md');
 const ASSISTANT_MODEL = "gpt-4-0125-preview";
 const AUDIO_MODEL = "tts-1";
 const AUDIO_VOICE = "fable";
+const IMAGE_MODEL = "dall-e-3";
 
 export async function POST(req: Request) {
   try {
@@ -25,6 +26,19 @@ export async function POST(req: Request) {
 
     const assistantResponse = response.choices[0].message.content;
 
+    // Generate image if a file response is detected
+    let imageUrl = null;
+    if (assistantResponse.includes('[File:')) {
+      const imagePrompt = `Create an image based on the following context: ${assistantResponse}`;
+      const imageResponse = await openai.images.generate({
+        model: IMAGE_MODEL,
+        prompt: imagePrompt,
+        n: 1,
+        size: "1024x1024",
+      });
+      imageUrl = imageResponse.data[0].url;
+    }
+
     const audioResponse = await openai.audio.speech.create({
       model: AUDIO_MODEL,
       voice: AUDIO_VOICE,
@@ -36,11 +50,12 @@ export async function POST(req: Request) {
     const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
     const audioBase64 = audioBuffer.toString('base64');
 
-    console.log(assistantResponse)
+    console.log(assistantResponse);
 
     return NextResponse.json({
       text: assistantResponse,
-      audio: `data:audio/mp3;base64,${audioBase64}`
+      audio: `data:audio/mp3;base64,${audioBase64}`,
+      image: imageUrl
     });
   } catch (error) {
     console.error('Error in chat:', error);
